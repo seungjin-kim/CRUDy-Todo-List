@@ -3,6 +3,9 @@ const path = require('path');
 const _ = require('underscore');
 const counter = require('./counter');
 
+var Promise = require('bluebird');
+Promise.promisifyAll(fs);
+
 var items = {};
 
 // Public API - Fix these CRUD functions ///////////////////////////////////////
@@ -35,23 +38,44 @@ exports.create = (text, callback) => {
 };
 
 exports.readAll = (callback) => {
+  // Original readAll code given to us
   // var data = _.map(items, (text, id) => {
   //   return { id, text };
   // });
   // callback(null, data);
 
+  // Previous readAll code not using promise
+  // fs.readdir(exports.dataDir, (err, files) => {
+  //   if (err) {
+  //     console.log('Read Directory Error', err);
+  //   } else {
+  //     var data = _.map(files, (id, text) => {
+  //       var fileName = id.split('.');
+  //       return { id: fileName[0], text: text };
+  //     });
+  //     callback(null, data);
+
+
   fs.readdir(exports.dataDir, (err, files) => {
     if (err) {
       console.log('Read Directory Error', err);
     } else {
-      var data = _.map(files, (id, text) => {
-        var fileName = id.split('.');
-        return { id: fileName[0], text: fileName[0] };
+      var data = files.map((file) => {
+        return fs.readFileAsync(path.join(exports.dataDir, `${file}`))
+          .then(function(textData) {
+            console.log('file', file);
+            console.log('textData', textData);
+            return { id: file.slice(0, -4), text: textData.toString()};
+          });
       });
-      callback(null, data);
-    }
+      console.log('data', data);
 
-  });
+      Promise.all(data).then(function(todos) {
+        callback(null, todos);
+      });
+    }
+  }
+  );
 };
 
 exports.readOne = (id, callback) => {
